@@ -8,10 +8,10 @@ import pandas as pd
 import urllib.parse
 import requests,  re, time
 #from urllib3 import Request, urlopen
-import json,csv, glob, os
+import json,csv, glob, os, sys
 from datetime import datetime
 from bs4 import BeautifulSoup
-pd.set_option('display.max_colwidth', None)
+#pd.set_option('display.max_colwidth', None)
 
 def extrairNoticiaporApi():
 
@@ -32,7 +32,7 @@ def extrairNoticiaporApi():
            ]
 
 
-    url = 'https://gnews.io/api/v4/search?q=covid&token=9456eed34bcc0251a3b4752f95e1643d&country=br'
+    #lsturl = ['https://gnews.io/api/v4/search?q=covid&token=9456eed34bcc0251a3b4752f95e1643d&country=br']
     for index,url in enumerate(lsturl): 
         r = requests.get(url)
         if r.status_code ==200:
@@ -47,22 +47,24 @@ def extrairNoticiaporApi():
                 del(dfNews['index'])
                 dfNews = dfNews.drop_duplicates(subset='title', keep="first")
                 dfNewsTexto = extraiUrlHtml(dfNews.copy())
-                categoria=[]
-                for link in dfNewsTexto['url'].tolist(): 
-                    tmp_classe = urllib.parse.urlparse(link).path.split('/')[1:-1]
-                    classe=[]
-                    for cl in tmp_classe:
-                        padrao = re.match(r'\b(\d{4})\b|\b(\d{2})\b|\b(globo)\b|\b(g1)\b\
-                                          |\b(noticia)\b|globonews',cl )
-                        if padrao==None:
-                            classe.append(cl)
-                    categoria.append(classe)
-                dfNewsTexto['categoria']=categoria
-                arquivo = "e:/Hederson/MBA/tcc/News"+datetime.now().strftime('%Y%m%d_%H%M%S')+str(index)+'.csv'
+                if not type(dfNewsTexto) is pd.DataFrame:
+                  dfNewsTexto = dfNews.copy()
+                  dfNewsTexto['Texto'] = ''
+                
+                dfNewsTexto['TMP_CLASSE'] = dfNewsTexto.loc[:,['url']].apply(lambda x: urllib.parse.urlparse(x['url']).path.split('/')[1:-1],axis=1)
+                dfNewsTexto['categoria']= dfNewsTexto.loc[:,['TMP_CLASSE']].apply(lambda x: [item for item in x['TMP_CLASSE'] 
+                                                 if re.match(r"\b(\d{4})\b|\b(\d{2})\b|\b(globo)\b|\b(g1)\b\|(noticia)|(noticias)|globonews|(?=\S*['-])([a-zA-Z'-]+)",item )==None], axis=1 )
+                                                 
+                del(dfNewsTexto['TMP_CLASSE'])
+                dfNewsTexto['dt_registro']=datetime.now().strftime('%Y-%m-%d %H-%M-%Y')
+    
+                
+                arquivo = "/opt/app/jupyter/GDMT/hederson/noticias/News"+datetime.now().strftime('%Y%m%d_%H%M%S')+str(index)+'.csv'
                 dfNewsTexto.to_csv(arquivo, mode='w', sep = ';', encoding='utf-8',header=True, index=False, quotechar='"', quoting = csv.QUOTE_MINIMAL   )
                 #return dfNewsTexto
 
 def extraiUrlHtml(dfNews):
+  try:
     reportagem=[]
     for index in dfNews.index:
         url = dfNews['url'][index]
@@ -83,6 +85,9 @@ def extraiUrlHtml(dfNews):
             reportagem.append('NA')
     dfNews['Texto']=reportagem    
     return dfNews
+  except:
+    print(sys.exc_info()[0])
+    return sys.exc_info()[0]
 
 def extraiUrlHtmlArquivos():
     diretorio = "e:/Hederson/MBA/tcc/"
