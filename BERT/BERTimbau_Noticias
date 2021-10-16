@@ -5,7 +5,7 @@
     "colab": {
       "name": "Untitled5.ipynb",
       "provenance": [],
-      "authorship_tag": "ABX9TyPMvy0c3QvavpGOAEEPCkLW",
+      "authorship_tag": "ABX9TyMN4NVrImjd0Na3DBb+Nk+Z",
       "include_colab_link": true
     },
     "kernelspec": {
@@ -2445,10 +2445,86 @@
     {
       "cell_type": "code",
       "metadata": {
-        "id": "l0mLeKKQO2fa"
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "l0mLeKKQO2fa",
+        "outputId": "087e53a9-06f9-4665-9f9a-6fe8b6eaa4b2"
       },
       "source": [
-        ""
+        "drive.mount('/gdrive')\n",
+        "%cd /gdrive/My\\ Drive/Colab\\ Notebooks"
+      ],
+      "execution_count": 6,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Mounted at /gdrive\n",
+            "/gdrive/My Drive/Colab Notebooks\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "0Viz5xfHPbgM"
+      },
+      "source": [
+        "class BERTimbau_Noticias():\n",
+        "  def __init__(self, tokenizer, max_seq_length=512, bs=8, lr=1e-6:\n",
+        "    self.MAX_SEQ_LEN = max_seq_length #limita os artigos em 128 tokens. BERTimbau base é limitado em 512 tokens por texto.\n",
+        "    self.PAD_INDEX = tokenizer.convert_tokens_to_ids(tokenizer.pad_token)\n",
+        "    self.UNK_INDEX = tokenizer.convert_tokens_to_ids(tokenizer.unk_token)\n",
+        "    self.bs = bs\n",
+        "    self.lr = lr\n",
+        "    self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')\n",
+        "    \n",
+        "  \n",
+        "  def montaFields(self):\n",
+        "    '''Define a estrutura do registro que será utilizada para construir os datasets de treinamento, validação e teste. \n",
+        "       Também faz a ligação entre o tokenizador BERTimbau e as sequências de texto. \n",
+        "       Esta estrutura será submetida ao tokenizaAmostra.\n",
+        "       Retorna uma lista contendo o label_field, text_field e o fields que é uma lista de tuplas com text e label'''\n",
+        "    # Fields - use_vocab=False  e tokenizer.encode permite que utilizemos os tokens do BERTimbau.\n",
+        "    label_field = Field(sequential=False, use_vocab=False, batch_first=True, dtype=torch.float)\n",
+        "    text_field = Field(use_vocab=False, tokenize=self.tokenizer.encode, lower=False, include_lengths=False, batch_first=True,\n",
+        "                   fix_length=self.MAX_SEQ_LEN, pad_token=self.PAD_INDEX, unk_token=self.UNK_INDEX)\n",
+        "    fields = [('text', text_field),('label', label_field)]\n",
+        "    return [label_field, text_field, fields]\n",
+        "\n",
+        "  def tokenizaAmostra(self, source_folder, fields=fields, soTeste=False):\n",
+        "    ''' Constroi os dataset de treino, validação e teste a partir de csv independentes disponibilizados no caminho source_folder e utilizando\n",
+        "        a estrutura de registro definida em fields, transformando a sequência de textos em sequência de tokens.\n",
+        "        Depois monta os BuckIterator de treino, validação e teste conforme definição do tamanho do bach size.\n",
+        "        Retorna uma lista de Iterators: treino, validação e teste.\n",
+        "        '''    \n",
+        "    # TabularDataset\n",
+        "    train, valid, test = TabularDataset.splits(path=source_folder, train='train.csv', validation='valid.csv',\n",
+        "                                              test='test.csv', format='CSV', fields=fields, skip_header=True)\n",
+        "    # Iterators\n",
+        "\n",
+        "    train_iter, valid_iter = None, None\n",
+        "    test_iter = Iterator(test, batch_size=self.bs, device=self.device, train=False, shuffle=False, sort=False)\n",
+        "    if soTeste == False:\n",
+        "      train_iter = BucketIterator(train, batch_size=self.bs, sort_key=lambda x: len(x.text),\n",
+        "                                device=self.device, train=True, sort=True, sort_within_batch=True)\n",
+        "      valid_iter = BucketIterator(valid, batch_size=self.bs, sort_key=lambda x: len(x.text),\n",
+        "                                device=self.device, train=True, sort=True, sort_within_batch=True)\n",
+        "    return [train_iter, valid_iter, test_iter]\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oWfDwbQ0QvJe"
+      },
+      "source": [
+        "label_field, text_field, fields = montaFields(MAX_SEQ_LEN)"
       ],
       "execution_count": null,
       "outputs": []
